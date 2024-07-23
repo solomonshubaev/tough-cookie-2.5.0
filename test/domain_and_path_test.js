@@ -33,6 +33,7 @@
 var vows = require('vows');
 var assert = require('assert');
 var tough = require('../lib/cookie');
+const { prototype } = require('events');
 var Cookie = tough.Cookie;
 
 function matchVows(func, table) {
@@ -60,6 +61,25 @@ function defaultPathVows(table) {
     };
   });
   return theVows;
+}
+
+async function checkPrototypePollution() {
+  const cookieJar = new tough.CookieJar(undefined,{rejectPublicSuffixes:false});
+  await cookieJar.setCookie(
+    "wasExploite=true; Domain=__proto__; Path=/exploited",
+    "https://__proto__/admin",
+    {looseMode: null},
+    () => {}
+  );
+  await cookieJar.setCookieSync(
+    "Auth=Lol; Domain=google.com; Path=/exploited",
+    "https://google.com/"
+  );
+  const a = {}
+  assert.equal(a.__proto__['/exploited'], undefined, 'Exploit succeeded please check your logic. Prototype is overridden');
+  if (Object.prototype['/exploited']) { // clear if exploited
+    delete Object.prototype['/exploited'];
+  }
 }
 
 vows
@@ -195,6 +215,12 @@ vows
           });
         }
       }
+    }
+  })
+  .addBatch({
+    "prototype pollution":
+    {
+      "check prototype exploit": checkPrototypePollution()
     }
   })
   .export(module);
